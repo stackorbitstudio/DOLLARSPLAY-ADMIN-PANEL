@@ -2,7 +2,11 @@
 "use client";
 
 import { useState } from "react";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  sendEmailVerification,
+} from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 
@@ -10,11 +14,46 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function handleVerification() {
+    setError("");
+    setMessage("");
+    setSending(true);
+
+    try {
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        email.trim().toLowerCase(),
+        password
+      );
+
+      await credential.user.reload();
+
+      if (credential.user.emailVerified) {
+        setMessage("Your email is already verified.");
+      } else {
+        await sendEmailVerification(credential.user);
+        setMessage("Verification email sent. Check your Gmail inbox and Spam folder.");
+      }
+
+      await signOut(auth);
+    } catch {
+      setError("Could not send verification email. Check your email and password.");
+      if (auth.currentUser) {
+        await signOut(auth);
+      }
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    setMessage("");
     setLoading(true);
 
     try {
@@ -108,12 +147,27 @@ export default function AdminLoginPage() {
             </p>
           )}
 
+          {message && (
+            <p className="rounded-xl bg-lime-400/10 p-3 text-sm text-lime-300">
+              {message}
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || sending}
             className="w-full rounded-xl bg-lime-400 py-4 font-bold text-black hover:bg-lime-300 disabled:opacity-50"
           >
             {loading ? "Checking Access..." : "SECURE LOGIN"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleVerification}
+            disabled={loading || sending || !email || !password}
+            className="w-full rounded-xl border border-purple-500 py-4 font-semibold text-white hover:bg-purple-900/40 disabled:opacity-50"
+          >
+            {sending ? "Sending Email..." : "SEND VERIFICATION EMAIL"}
           </button>
         </form>
 
@@ -123,5 +177,5 @@ export default function AdminLoginPage() {
       </div>
     </main>
   );
-        }
-      
+  }
+          
