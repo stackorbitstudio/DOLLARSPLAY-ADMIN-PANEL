@@ -38,6 +38,7 @@ export default function LoginPage() {
       );
 
       await result.user.reload();
+      await result.user.getIdToken(true);
 
       if (!auth.currentUser?.emailVerified) {
         await signOut(auth);
