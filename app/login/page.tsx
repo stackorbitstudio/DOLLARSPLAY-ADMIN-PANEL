@@ -23,7 +23,7 @@ export default function LoginPage() {
   async function handleLogin() {
     setMessage("");
 
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setMessage("Please enter your email and password.");
       return;
     }
@@ -38,9 +38,13 @@ export default function LoginPage() {
       );
 
       await result.user.reload();
-      await result.user.getIdToken(true);
 
-      if (!auth.currentUser?.emailVerified) {
+      const tokenResult = await result.user.getIdTokenResult(true);
+
+      if (
+        !result.user.emailVerified ||
+        tokenResult.claims.email_verified !== true
+      ) {
         await signOut(auth);
         setMessage("Please verify your email before logging in.");
         return;
@@ -55,9 +59,21 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard/");
+      router.replace("/dashboard/");
     } catch (error: any) {
-      setMessage(error.message || "Login failed.");
+      console.error("Admin login error:", error);
+
+      if (auth.currentUser) {
+        await signOut(auth);
+      }
+
+      if (error.code === "permission-denied") {
+        setMessage(
+          "Firestore permission denied. Please check Admin Firestore Rules."
+        );
+      } else {
+        setMessage(error.message || "Login failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -66,7 +82,7 @@ export default function LoginPage() {
   async function handleVerification() {
     setMessage("");
 
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setMessage("Enter your email and password first.");
       return;
     }
@@ -82,7 +98,7 @@ export default function LoginPage() {
 
       await result.user.reload();
 
-      if (auth.currentUser?.emailVerified) {
+      if (result.user.emailVerified) {
         setMessage("Your email is already verified.");
       } else {
         await sendEmailVerification(result.user);
@@ -91,8 +107,12 @@ export default function LoginPage() {
 
       await signOut(auth);
     } catch (error: any) {
+      console.error("Verification error:", error);
       setMessage(error.message || "Could not send verification email.");
-      if (auth.currentUser) await signOut(auth);
+
+      if (auth.currentUser) {
+        await signOut(auth);
+      }
     } finally {
       setLoading(false);
     }
@@ -188,5 +208,5 @@ export default function LoginPage() {
       </div>
     </main>
   );
-    }
-        
+          }
+          
