@@ -14,7 +14,6 @@ import { auth, db } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -22,48 +21,42 @@ export default function LoginPage() {
 
   async function handleLogin() {
     setMessage("");
-
     if (!email.trim() || !password) {
       setMessage("Please enter your email and password.");
       return;
     }
-
     setLoading(true);
 
     try {
-      const result = await signInWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
-
+      const result = await signInWithEmailAndPassword(auth, email.trim(), password);
       await result.user.reload();
-      const tokenResult = await result.user.getIdTokenResult(true);
+      await result.user.getIdToken(true);
 
-      if (
-        !result.user.emailVerified ||
-        tokenResult.claims.email_verified !== true
-      ) {
+      if (!result.user.emailVerified) {
         await signOut(auth);
         setMessage("Please verify your email before logging in.");
         return;
       }
 
-      const adminRef = doc(db, "admins", result.user.uid);
+      const uid = result.user.uid;
+      const adminRef = doc(db, "admins", uid);
       const adminSnap = await getDoc(adminRef);
 
       if (!adminSnap.exists()) {
         await signOut(auth);
-        setMessage("CHECK RESULT: Admin document does not exist at this path.");
+        setMessage("Admin document not found. UID: " + uid);
         return;
       }
 
-      const adminData = adminSnap.data();
+      const data = adminSnap.data();
 
-      if (adminData.active !== true) {
+      if (data.active !== true) {
         await signOut(auth);
         setMessage(
-          `CHECK RESULT: Admin document exists, but active is ${String(adminData.active)} (type: ${typeof adminData.active}).`
+          "Admin found. Field active = " +
+          String(data.active) +
+          ". Fields found: " +
+          Object.keys(data).join(", ")
         );
         return;
       }
@@ -71,19 +64,14 @@ export default function LoginPage() {
       router.replace("/dashboard/");
     } catch (error: any) {
       console.error("Admin login error:", error);
+      if (auth.currentUser) await signOut(auth);
 
-      if (auth.currentUser) {
-        await signOut(auth);
-      }
-
-      if (
-        error.code === "permission-denied" ||
-        error.code === "firestore/permission-denied"
-      ) {
-        setMessage("Firestore permission denied while reading admin document.");
-      } else {
-        setMessage(error.message || "Login failed.");
-      }
+      setMessage(
+        "Login error: " +
+        (error.code || "") +
+        " " +
+        (error.message || "Unknown error")
+      );
     } finally {
       setLoading(false);
     }
@@ -91,38 +79,24 @@ export default function LoginPage() {
 
   async function handleVerification() {
     setMessage("");
-
     if (!email.trim() || !password) {
       setMessage("Enter your email and password first.");
       return;
     }
-
     setLoading(true);
-
     try {
-      const result = await signInWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
-
+      const result = await signInWithEmailAndPassword(auth, email.trim(), password);
       await result.user.reload();
-
       if (result.user.emailVerified) {
         setMessage("Your email is already verified.");
       } else {
         await sendEmailVerification(result.user);
         setMessage("Verification email sent. Please check your inbox.");
       }
-
       await signOut(auth);
     } catch (error: any) {
-      console.error("Verification error:", error);
       setMessage(error.message || "Could not send verification email.");
-
-      if (auth.currentUser) {
-        await signOut(auth);
-      }
+      if (auth.currentUser) await signOut(auth);
     } finally {
       setLoading(false);
     }
@@ -130,14 +104,11 @@ export default function LoginPage() {
 
   async function handleForgotPassword() {
     setMessage("");
-
     if (!email.trim()) {
       setMessage("Enter your email address first.");
       return;
     }
-
     setLoading(true);
-
     try {
       await sendPasswordResetEmail(auth, email.trim());
       setMessage("Password reset email sent. Please check your inbox.");
@@ -151,71 +122,39 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border border-purple-500/30 bg-[#111827] p-7 shadow-2xl">
-        <h1 className="text-center text-3xl font-bold text-lime-400">
-          DOLLARSPLAY
-        </h1>
-
-        <h2 className="mt-3 text-center text-xl font-semibold">
-          Admin Login
-        </h2>
-
-        <p className="mt-2 text-center text-sm text-gray-400">
-          Private administration access
-        </p>
+        <h1 className="text-center text-3xl font-bold text-lime-400">DOLLARSPLAY</h1>
+        <h2 className="mt-3 text-center text-xl font-semibold">Admin Login</h2>
+        <p className="mt-2 text-center text-sm text-gray-400">Private administration access</p>
 
         <div className="mt-8 space-y-4">
-          <input
-            type="email"
-            placeholder="Admin Email"
-            value={email}
+          <input type="email" placeholder="Admin Email" value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-gray-700 bg-[#090611] p-3 text-white outline-none focus:border-lime-400"
-          />
+            className="w-full rounded-lg border border-gray-700 bg-[#090611] p-3 text-white outline-none focus:border-lime-400" />
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
+          <input type="password" placeholder="Password" value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-gray-700 bg-[#090611] p-3 text-white outline-none focus:border-lime-400"
-          />
+            className="w-full rounded-lg border border-gray-700 bg-[#090611] p-3 text-white outline-none focus:border-lime-400" />
 
           <div className="text-right">
-            <button
-              type="button"
-              onClick={handleForgotPassword}
-              disabled={loading}
-              className="text-sm text-purple-400 hover:text-purple-300"
-            >
-              Forgot Password?
-            </button>
+            <button type="button" onClick={handleForgotPassword} disabled={loading}
+              className="text-sm text-purple-400 hover:text-purple-300">Forgot Password?</button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full rounded-lg bg-lime-400 p-3 font-bold text-black hover:bg-lime-300 disabled:opacity-50"
-          >
+          <button type="button" onClick={handleLogin} disabled={loading}
+            className="w-full rounded-lg bg-lime-400 p-3 font-bold text-black hover:bg-lime-300 disabled:opacity-50">
             {loading ? "PLEASE WAIT..." : "LOGIN"}
           </button>
 
-          <button
-            type="button"
-            onClick={handleVerification}
-            disabled={loading}
-            className="w-full rounded-lg border border-purple-500 p-3 font-semibold text-purple-300 hover:bg-purple-500/10 disabled:opacity-50"
-          >
+          <button type="button" onClick={handleVerification} disabled={loading}
+            className="w-full rounded-lg border border-purple-500 p-3 font-semibold text-purple-300 hover:bg-purple-500/10 disabled:opacity-50">
             SEND VERIFICATION EMAIL
           </button>
 
           {message && (
-            <p className="break-words text-center text-sm text-yellow-300">
-              {message}
-            </p>
+            <p className="break-words text-center text-sm text-yellow-300">{message}</p>
           )}
         </div>
       </div>
     </main>
   );
-  }
+        }
