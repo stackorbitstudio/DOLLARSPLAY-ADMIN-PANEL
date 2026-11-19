@@ -38,7 +38,6 @@ export default function LoginPage() {
       );
 
       await result.user.reload();
-
       const tokenResult = await result.user.getIdTokenResult(true);
 
       if (
@@ -53,9 +52,19 @@ export default function LoginPage() {
       const adminRef = doc(db, "admins", result.user.uid);
       const adminSnap = await getDoc(adminRef);
 
-      if (!adminSnap.exists() || adminSnap.data().active !== true) {
+      if (!adminSnap.exists()) {
         await signOut(auth);
-        setMessage("Access denied. Admin account not found or inactive.");
+        setMessage("CHECK RESULT: Admin document does not exist at this path.");
+        return;
+      }
+
+      const adminData = adminSnap.data();
+
+      if (adminData.active !== true) {
+        await signOut(auth);
+        setMessage(
+          `CHECK RESULT: Admin document exists, but active is ${String(adminData.active)} (type: ${typeof adminData.active}).`
+        );
         return;
       }
 
@@ -67,10 +76,11 @@ export default function LoginPage() {
         await signOut(auth);
       }
 
-      if (error.code === "permission-denied") {
-        setMessage(
-          "Firestore permission denied. Please check Admin Firestore Rules."
-        );
+      if (
+        error.code === "permission-denied" ||
+        error.code === "firestore/permission-denied"
+      ) {
+        setMessage("Firestore permission denied while reading admin document.");
       } else {
         setMessage(error.message || "Login failed.");
       }
@@ -208,5 +218,4 @@ export default function LoginPage() {
       </div>
     </main>
   );
-          }
-          
+  }
