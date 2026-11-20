@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -13,7 +14,6 @@ import { auth, db } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -37,7 +37,6 @@ export default function LoginPage() {
       );
 
       await result.user.reload();
-
       const tokenResult = await result.user.getIdTokenResult(true);
 
       if (
@@ -54,45 +53,32 @@ export default function LoginPage() {
 
       if (!adminSnap.exists()) {
         await signOut(auth);
-        setMessage("Admin document not found.");
+        setMessage("Admin record not found.");
         return;
       }
 
       const adminData = adminSnap.data();
 
-      const adminRole = adminData.role;
-      const adminActive = adminData.active;
-      const adminEmail = adminData.email;
+      const isAdmin =
+        adminData.role === "admin" &&
+        adminData.active === true &&
+        typeof adminData.email === "string" &&
+        adminData.email.toLowerCase() ===
+          result.user.email?.toLowerCase();
 
-      if (
-        adminRole !== "admin" ||
-        adminActive !== true ||
-        adminEmail !== result.user.email
-      ) {
+      if (!isAdmin) {
         await signOut(auth);
-
-        setMessage(
-          `Admin check failed. Role: ${String(adminRole)}, Active: ${String(adminActive)}, Email match: ${String(adminEmail === result.user.email)}`
-        );
+        setMessage("Admin verification failed. Check admin permissions.");
         return;
       }
 
       router.replace("/dashboard/");
     } catch (error: any) {
       console.error("Admin login error:", error);
-
       if (auth.currentUser) {
         await signOut(auth);
       }
-
-      if (
-        error.code === "permission-denied" ||
-        error.code === "firestore/permission-denied"
-      ) {
-        setMessage("Firestore permission denied. Admin document read blocked.");
-      } else {
-        setMessage(error.message || "Login failed.");
-      }
+      setMessage(error.message || "Login failed.");
     } finally {
       setLoading(false);
     }
@@ -121,13 +107,12 @@ export default function LoginPage() {
         setMessage("Your email is already verified.");
       } else {
         await sendEmailVerification(result.user);
-        setMessage("Verification email sent. Please check your inbox.");
+        setMessage("Verification email sent. Check your inbox.");
       }
 
       await signOut(auth);
     } catch (error: any) {
       setMessage(error.message || "Could not send verification email.");
-
       if (auth.currentUser) {
         await signOut(auth);
       }
@@ -148,9 +133,9 @@ export default function LoginPage() {
 
     try {
       await sendPasswordResetEmail(auth, email.trim());
-      setMessage("Password reset email sent. Please check your inbox.");
+      setMessage("Password reset email sent. Check your inbox.");
     } catch (error: any) {
-      setMessage(error.message || "Could not send password reset email.");
+      setMessage(error.message || "Could not send reset email.");
     } finally {
       setLoading(false);
     }
@@ -226,4 +211,4 @@ export default function LoginPage() {
       </div>
     </main>
   );
-        }
+}
