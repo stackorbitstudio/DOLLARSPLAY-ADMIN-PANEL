@@ -21,6 +21,7 @@ export default function AdminDashboardPage() {
 
       try {
         await user.reload();
+        await user.getIdToken(true);
 
         if (!user.emailVerified) {
           await signOut(auth);
@@ -31,7 +32,19 @@ export default function AdminDashboardPage() {
         const adminRef = doc(db, "admins", user.uid);
         const adminSnapshot = await getDoc(adminRef);
 
-        if (!adminSnapshot.exists() || adminSnapshot.data().active !== true) {
+        if (!adminSnapshot.exists()) {
+          await signOut(auth);
+          router.replace("/login/");
+          return;
+        }
+
+        const adminData = adminSnapshot.data();
+
+        if (
+          adminData.active !== true ||
+          adminData.role !== "admin" ||
+          adminData.email !== user.email
+        ) {
           await signOut(auth);
           router.replace("/login/");
           return;
@@ -39,7 +52,8 @@ export default function AdminDashboardPage() {
 
         setAdminEmail(user.email || "");
         setChecking(false);
-      } catch {
+      } catch (error) {
+        console.error("Dashboard verification error:", error);
         await signOut(auth);
         router.replace("/login/");
       }
@@ -60,6 +74,18 @@ export default function AdminDashboardPage() {
       </main>
     );
   }
+
+  const modules = [
+    "User Management",
+    "Wallet Management",
+    "Withdrawal Management",
+    "Games Management",
+    "Tasks Management",
+    "Referral Management",
+    "Coin Conversion Rates",
+    "Reports & Analytics",
+    "Platform Settings",
+  ];
 
   return (
     <main className="min-h-screen bg-[#090611] p-5 text-white md:p-10">
@@ -93,17 +119,7 @@ export default function AdminDashboardPage() {
         <h2 className="mb-5 text-xl font-bold">Control Center</h2>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            "User Management",
-            "Wallet Management",
-            "Withdrawal Management",
-            "Games Management",
-            "Tasks Management",
-            "Referral Management",
-            "Coin Conversion Rates",
-            "Reports & Analytics",
-            "Platform Settings",
-          ].map((item) => (
+          {modules.map((item) => (
             <div
               key={item}
               className="rounded-2xl border border-purple-800/50 bg-[#160e27] p-6"
@@ -118,5 +134,4 @@ export default function AdminDashboardPage() {
       </section>
     </main>
   );
-            }
-      
+      }
