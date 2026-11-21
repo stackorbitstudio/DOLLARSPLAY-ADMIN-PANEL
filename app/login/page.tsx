@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -19,19 +20,24 @@ export default function LoginPage() {
 
   async function handleLogin() {
     setMessage("");
+
     if (!email.trim() || !password) {
       setMessage("Please enter your email and password.");
       return;
     }
+
     setLoading(true);
+
     try {
       const result = await signInWithEmailAndPassword(
         auth,
         email.trim(),
         password
       );
+
       await result.user.reload();
       const tokenResult = await result.user.getIdTokenResult(true);
+
       if (
         !result.user.emailVerified ||
         tokenResult.claims.email_verified !== true
@@ -40,26 +46,31 @@ export default function LoginPage() {
         setMessage("Please verify your email before logging in.");
         return;
       }
+
       const adminRef = doc(db, "admins", result.user.uid);
       const adminSnap = await getDoc(adminRef);
+
       if (!adminSnap.exists()) {
         await signOut(auth);
         setMessage("Admin record not found.");
         return;
       }
+
       const adminData = adminSnap.data();
+
       const isAdmin =
         adminData.role === "admin" &&
         adminData.active === true &&
         typeof adminData.email === "string" &&
-        adminData.email.toLowerCase() === result.user.email?.toLowerCase();
+        adminData.email.toLowerCase() ===
+          result.user.email?.toLowerCase();
+
       if (!isAdmin) {
         await signOut(auth);
-        setMessage(
-          `DEBUG: role=[${adminData.role}] active=[${adminData.active}] dbEmail=[${adminData.email}] authEmail=[${result.user.email}] uid=[${result.user.uid}]`
-        );
+        setMessage("Admin verification failed. Check admin permissions.");
         return;
       }
+
       router.replace("/dashboard/");
     } catch (error: any) {
       console.error("Admin login error:", error);
@@ -74,24 +85,30 @@ export default function LoginPage() {
 
   async function handleVerification() {
     setMessage("");
+
     if (!email.trim() || !password) {
       setMessage("Enter your email and password first.");
       return;
     }
+
     setLoading(true);
+
     try {
       const result = await signInWithEmailAndPassword(
         auth,
         email.trim(),
         password
       );
+
       await result.user.reload();
+
       if (result.user.emailVerified) {
         setMessage("Your email is already verified.");
       } else {
         await sendEmailVerification(result.user);
         setMessage("Verification email sent. Check your inbox.");
       }
+
       await signOut(auth);
     } catch (error: any) {
       setMessage(error.message || "Could not send verification email.");
@@ -105,11 +122,14 @@ export default function LoginPage() {
 
   async function handleForgotPassword() {
     setMessage("");
+
     if (!email.trim()) {
       setMessage("Enter your email address first.");
       return;
     }
+
     setLoading(true);
+
     try {
       await sendPasswordResetEmail(auth, email.trim());
       setMessage("Password reset email sent. Check your inbox.");
@@ -126,12 +146,15 @@ export default function LoginPage() {
         <h1 className="text-center text-3xl font-bold text-lime-400">
           DOLLARSPLAY
         </h1>
+
         <h2 className="mt-3 text-center text-xl font-semibold">
           Admin Login
         </h2>
+
         <p className="mt-2 text-center text-sm text-gray-400">
           Private administration access
         </p>
+
         <div className="mt-8 space-y-4">
           <input
             type="email"
@@ -140,6 +163,7 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-[#090611] p-3 text-white outline-none focus:border-lime-400"
           />
+
           <input
             type="password"
             placeholder="Password"
@@ -147,6 +171,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-[#090611] p-3 text-white outline-none focus:border-lime-400"
           />
+
           <div className="text-right">
             <button
               type="button"
@@ -157,29 +182,6 @@ export default function LoginPage() {
               Forgot Password?
             </button>
           </div>
+
           <button
-            type="button"
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full rounded-lg bg-lime-400 p-3 font-bold text-black hover:bg-lime-300 disabled:opacity-50"
-          >
-            {loading ? "PLEASE WAIT..." : "LOGIN"}
-          </button>
-          <button
-            type="button"
-            onClick={handleVerification}
-            disabled={loading}
-            className="w-full rounded-lg border border-purple-500 p-3 font-semibold text-purple-300 hover:bg-purple-500/10 disabled:opacity-50"
-          >
-            SEND VERIFICATION EMAIL
-          </button>
-          {message && (
-            <p className="break-words text-center text-sm text-yellow-300">
-              {message}
-            </p>
-          )}
-        </div>
-      </div>
-    </main>
-  );
-}
+ 
